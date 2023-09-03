@@ -22,10 +22,17 @@
 #ifdef POSIX
 #include <stdio.h>
 #include <stdlib.h>
-#include <dlfcn.h>
 #include <limits.h>
 #include <string.h>
+#ifdef PLATFORM_PSVITA
+#define VRTLD_LIBDL_COMPAT 1
+#include <vrtld.h>
+#include <vitasdk.h>
+#define MAX_PATH 1024
+#else
+#include <dlfcn.h>
 #define MAX_PATH PATH_MAX
+#endif
 #endif
 
 #include "tier0/basetypes.h"
@@ -139,6 +146,422 @@ int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
 
 	LauncherMain_t main = (LauncherMain_t)GetProcAddress( launcher, "LauncherMain" );
 	return main( hInstance, hPrevInstance, lpCmdLine, nCmdShow );
+}
+
+#elif defined (PLATFORM_PSVITA)
+
+#include <vitaGL.h>
+#include <string.h>
+#include <ctype.h>
+
+#define DATA_PATH "data/halflife2"
+#define MAX_ARGV 5
+
+// 256MB libc heap, 512K main thread stack, 70MB for loading game DLLs
+// the rest goes to vitaGL
+extern "C" SceUInt32 sceUserMainThreadStackSize = 512 * 1024;
+extern "C" unsigned int _pthread_stack_default_user = 512 * 1024;
+extern "C" unsigned int _newlib_heap_size_user = 260 * 1024 * 1024;
+#define VGL_MEM_THRESHOLD ( 70 * 1024 * 1024 )
+
+// HACKHACK: create some slack at the end of the RX segment of the ELF
+// for vita-elf-create to put the generated symbol table into
+const unsigned char vitaelf_slack __attribute__ ((used, aligned (0x20000))) = 0xFF;
+
+/* HACKHACK: force-export stuff required by the dynamic libs */
+
+#include "SDL.h"
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <wchar.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <curl/curl.h>
+#include <math.h>
+
+extern "C" void *__aeabi_idiv;
+extern "C" void *__aeabi_uidiv;
+extern "C" void *__aeabi_idivmod;
+extern "C" void *__aeabi_ldivmod;
+extern "C" void *__aeabi_uidivmod;
+extern "C" void *__aeabi_uldivmod;
+extern "C" void *__aeabi_d2lz;
+extern "C" void *__aeabi_d2ulz;
+extern "C" void *__aeabi_l2d;
+extern "C" void *__aeabi_l2f;
+extern "C" void *__aeabi_ul2d;
+extern "C" void *__aeabi_ul2f;
+extern "C" void *_ZTIi;
+
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEjc;
+extern "C" void *_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5c_strEv;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC1Ev;
+extern "C" void *_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6lengthEv;
+extern "C" void *_ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5emptyEv;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED1Ev;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5eraseEjj;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEjjPKcj;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEj;
+extern "C" void *_ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_disposeEv;
+
+extern "C" void *__powidf2;
+extern "C" void *__powisf2;
+
+extern "C" {
+void *__wrap_calloc(uint32_t nmember, uint32_t size) { return vglCalloc(nmember, size); }
+void __wrap_free(void *addr) { vglFree(addr); };
+void *__wrap_malloc(uint32_t size) { return vglMalloc(size); };
+void *__wrap_memalign(uint32_t alignment, uint32_t size) { return vglMemalign(alignment, size); };
+void *__wrap_realloc(void *ptr, uint32_t size) { return vglRealloc(ptr, size); };
+void *__wrap_memcpy (void *dst, const void *src, size_t num) { return sceClibMemcpy(dst, src, num); };
+void *__wrap_memset (void *ptr, int value, size_t num) { return sceClibMemset(ptr, value, num); };
+};
+
+#define DEF_STUB( stret, stname, ... ) \
+	extern "C" stret stname ( __VA_ARGS__ ) { }
+#define DEF_STUB_LOGGED( stret, stname, ... ) \
+	extern "C" stret stname ( __VA_ARGS__ ) { fprintf( stderr, "!! " #stname "\n" ); }
+
+extern "C" void glGetTexLevelParameteriv( unsigned target, int level, unsigned pname, int *params )
+{
+	// unsupported for individual texlevels
+	// ... but also unsupported in general
+	// glGetTexParameteriv( target, pname, params );
+}
+
+extern "C" void glTexParameterfv( unsigned target, unsigned parm, const float *params )
+{
+	// ayy lmao
+	// this is only called with GL_TEXTURE_BORDER_COLOR and GL_TEXTURE_LOD_BIAS
+	int intparms[4] = { 0 };
+	glTexParameteriv( target, parm, intparms );
+}
+
+extern "C" void glSamplerParameterfv( unsigned target, unsigned parm, const float *params )
+{
+	// same, but iv is unimplemented
+}
+
+DEF_STUB( void, glBlendColor, float r, float g, float b, float a )
+DEF_STUB( void, glGenQueries, unsigned count, unsigned *objs )
+DEF_STUB( void, glDeleteQueries, unsigned count, const unsigned *objs )
+DEF_STUB_LOGGED( void, glBeginQuery, unsigned type, unsigned obj )
+DEF_STUB( void, glEndQuery, unsigned type )
+DEF_STUB( void, glGetQueryObjectiv, unsigned obj, unsigned parm, int *out )
+DEF_STUB( void, glGetQueryObjectuiv, unsigned obj, unsigned parm, unsigned *out )
+DEF_STUB( void, glGetSynciv, unsigned a, unsigned b, unsigned c, unsigned *d, int *e )
+DEF_STUB_LOGGED( void, glClientWaitSync, unsigned a, unsigned b, unsigned long long c )
+DEF_STUB_LOGGED( void, glWaitSync, unsigned a, unsigned b, unsigned long long c )
+DEF_STUB_LOGGED( void, glFenceSync, unsigned a, unsigned b )
+DEF_STUB( void, glDeleteSync, unsigned a )
+DEF_STUB( void, glDetachShader, unsigned prog, unsigned sh )
+DEF_STUB( void, glDrawBuffer, unsigned target )
+DEF_STUB( void, glDrawBuffers, unsigned target )
+DEF_STUB( void, glReadBuffer, unsigned target )
+DEF_STUB_LOGGED( void, glBlitFramebuffer, int x, int y, int w, int h, int x2, int y2, int w2, int h2 )
+DEF_STUB_LOGGED( void, glCopyBufferSubData, unsigned a, unsigned b, int c, int d, int e )
+DEF_STUB( void, glFramebufferTexture3D, GLenum a, GLenum b, GLenum c, GLuint d, GLint e, GLint f )
+DEF_STUB_LOGGED( void, glRenderbufferStorageMultisample, GLenum a, GLsizei b, GLenum c, GLsizei d, GLsizei e )
+
+#undef DEF_STUB
+#undef DEF_STUB_LOGGED
+
+// generates a filename in the cwd
+static char *Q_tmpnam( char *s )
+{
+	static char buf[1024];
+	static int cnt = 0;
+	snprintf( buf, sizeof(buf), "__tmp_%06d", cnt++ );
+	if ( s ) strcpy( s, buf );
+	return buf;
+}
+
+static const vrtld_export_t aux_exports[] =
+{
+	VRTLD_EXPORT_SYMBOL( __aeabi_d2lz ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_d2ulz ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_idiv ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_idivmod ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_ldivmod ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_uidivmod ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_uldivmod ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_uidiv ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_l2d ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_l2f ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_ul2d ),
+	VRTLD_EXPORT_SYMBOL( __aeabi_ul2f ),
+	VRTLD_EXPORT_SYMBOL( _ZTIi ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEjc ),
+	VRTLD_EXPORT_SYMBOL( _ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5c_strEv ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEC1Ev ),
+	VRTLD_EXPORT_SYMBOL( _ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6lengthEv ),
+	VRTLD_EXPORT_SYMBOL( _ZNKSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5emptyEv ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6assignEPKc ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEED1Ev ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEaSEPKc ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE5eraseEjj ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_replaceEjjPKcj ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE6resizeEj ),
+	VRTLD_EXPORT_SYMBOL( _ZNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEE10_M_disposeEv ),
+	VRTLD_EXPORT_SYMBOL( _impure_ptr ),
+	VRTLD_EXPORT_SYMBOL( __powidf2 ),
+	VRTLD_EXPORT_SYMBOL( __powisf2 ),
+	VRTLD_EXPORT_SYMBOL( SDL_Init ),
+	VRTLD_EXPORT_SYMBOL( SDL_GL_GetProcAddress ),
+	VRTLD_EXPORT_SYMBOL( SDL_SetClipboardText ),
+	VRTLD_EXPORT_SYMBOL( SDL_GetClipboardText ),
+	VRTLD_EXPORT_SYMBOL( SDL_HasClipboardText ),
+	VRTLD_EXPORT_SYMBOL( scePowerGetArmClockFrequency ),
+	VRTLD_EXPORT_SYMBOL( curl_global_init ),
+	VRTLD_EXPORT_SYMBOL( curl_easy_init ),
+	VRTLD_EXPORT_SYMBOL( curl_easy_perform ),
+	VRTLD_EXPORT_SYMBOL( curl_easy_cleanup ),
+	VRTLD_EXPORT_SYMBOL( curl_easy_getinfo ),
+	VRTLD_EXPORT_SYMBOL( curl_easy_setopt ),
+	VRTLD_EXPORT_SYMBOL( atol ),
+	VRTLD_EXPORT_SYMBOL( time ),
+	VRTLD_EXPORT_SYMBOL( mktime ),
+	VRTLD_EXPORT_SYMBOL( ctime ),
+	VRTLD_EXPORT_SYMBOL( ctime_r ),
+	VRTLD_EXPORT_SYMBOL( fscanf ),
+	VRTLD_EXPORT_SYMBOL( feof ),
+	VRTLD_EXPORT_SYMBOL( ferror ),
+	VRTLD_EXPORT_SYMBOL( freopen ),
+	VRTLD_EXPORT_SYMBOL( dup ),
+	VRTLD_EXPORT_SYMBOL( rewind ),
+	VRTLD_EXPORT_SYMBOL( fileno_unlocked ),
+	VRTLD_EXPORT_SYMBOL( vasprintf ),
+	VRTLD_EXPORT_SYMBOL( vsprintf ),
+	VRTLD_EXPORT_SYMBOL( vswprintf ),
+	VRTLD_EXPORT_SYMBOL( vprintf ),
+	VRTLD_EXPORT_SYMBOL( printf ),
+	VRTLD_EXPORT_SYMBOL( putchar ),
+	VRTLD_EXPORT_SYMBOL( puts ),
+	VRTLD_EXPORT_SYMBOL( select ),
+	VRTLD_EXPORT_SYMBOL( socket ),
+	VRTLD_EXPORT_SYMBOL( connect ),
+	VRTLD_EXPORT_SYMBOL( accept ),
+	VRTLD_EXPORT_SYMBOL( listen ),
+	VRTLD_EXPORT_SYMBOL( bind ),
+	VRTLD_EXPORT_SYMBOL( setsockopt ),
+	VRTLD_EXPORT_SYMBOL( getsockopt ),
+	VRTLD_EXPORT_SYMBOL( gethostname ),
+	VRTLD_EXPORT_SYMBOL( gethostbyname ),
+	VRTLD_EXPORT_SYMBOL( inet_addr ),
+	VRTLD_EXPORT_SYMBOL( send ),
+	VRTLD_EXPORT_SYMBOL( sendto ),
+	VRTLD_EXPORT_SYMBOL( recv ),
+	VRTLD_EXPORT_SYMBOL( recvfrom ),
+	VRTLD_EXPORT_SYMBOL( tolower ),
+	VRTLD_EXPORT_SYMBOL( toupper ),
+	VRTLD_EXPORT_SYMBOL( isalnum ),
+	VRTLD_EXPORT_SYMBOL( isalpha ),
+	VRTLD_EXPORT_SYMBOL( isupper ),
+	VRTLD_EXPORT_SYMBOL( islower ),
+	VRTLD_EXPORT_SYMBOL( isprint ),
+	VRTLD_EXPORT_SYMBOL( ispunct ),
+	VRTLD_EXPORT_SYMBOL( iscntrl ),
+	VRTLD_EXPORT_SYMBOL( isatty ),
+	VRTLD_EXPORT_SYMBOL( strtok ),
+	VRTLD_EXPORT_SYMBOL( strspn ),
+	VRTLD_EXPORT_SYMBOL( strchrnul ),
+	VRTLD_EXPORT_SYMBOL( stpcpy ),
+	VRTLD_EXPORT_SYMBOL( rand ),
+	VRTLD_EXPORT_SYMBOL( srand ),
+	VRTLD_EXPORT_SYMBOL( qsort_r ),
+	VRTLD_EXPORT_SYMBOL( unlink ),
+	VRTLD_EXPORT_SYMBOL( access ),
+	VRTLD_EXPORT_SYMBOL( wcstol ),
+	VRTLD_EXPORT_SYMBOL( wcstoll ),
+	VRTLD_EXPORT_SYMBOL( wcstombs ),
+	VRTLD_EXPORT_SYMBOL( wcscat ),
+	VRTLD_EXPORT_SYMBOL( wcschr ),
+	VRTLD_EXPORT_SYMBOL( wcsncat ),
+	VRTLD_EXPORT_SYMBOL( wcsncpy ),
+	VRTLD_EXPORT_SYMBOL( wcstod ),
+	VRTLD_EXPORT_SYMBOL( swscanf ),
+	VRTLD_EXPORT_SYMBOL( sincosf ),
+	VRTLD_EXPORT_SYMBOL( fminf ),
+	VRTLD_EXPORT_SYMBOL( fmaxf ),
+	VRTLD_EXPORT_SYMBOL( alphasort ),
+
+	VRTLD_EXPORT( "dlopen", (void *)vrtld_dlopen ),
+	VRTLD_EXPORT( "dlclose", (void *)vrtld_dlclose ),
+	VRTLD_EXPORT( "dlsym", (void *)vrtld_dlsym ),
+	VRTLD_EXPORT( "tmpnam", (void *)Q_tmpnam ),
+	VRTLD_EXPORT( "iconv", (void *)SDL_iconv ),
+	VRTLD_EXPORT( "iconv_open", (void *)SDL_iconv_open ),
+	VRTLD_EXPORT( "iconv_close", (void *)SDL_iconv_close ),
+	VRTLD_EXPORT( "calloc", (void *)__wrap_calloc ),
+	VRTLD_EXPORT( "free", (void *)__wrap_free ),
+	VRTLD_EXPORT( "malloc", (void *)__wrap_malloc ),
+	VRTLD_EXPORT( "memalign", (void *)__wrap_memalign ),
+	VRTLD_EXPORT( "realloc", (void *)__wrap_realloc ),
+	VRTLD_EXPORT( "memcpy", (void *)__wrap_memcpy ),
+	VRTLD_EXPORT( "memset", (void *)__wrap_memset ),
+};
+
+extern "C" const vrtld_export_t *__vrtld_exports = aux_exports;
+extern "C" const unsigned int __vrtld_num_exports = sizeof( aux_exports ) / sizeof( *aux_exports );
+
+/* end of export crap */
+
+// DLL load order
+static const char *dep_list[] = {
+	"tier0",
+	"steam_api",
+	"vstdlib",
+	"togl",
+};
+
+static bool PSVita_GetBasePath( char *buf, const size_t buflen )
+{
+	// check if a xash3d folder exists on one of these drives
+	// default to the last one (ux0)
+	static const char *drives[] = { "uma0", "imc0", "ux0" };
+	SceUID dir;
+	size_t i;
+
+	for ( i = 0; i < sizeof( drives ) / sizeof( *drives ); ++i )
+	{
+		snprintf( buf, buflen, "%s:" DATA_PATH, drives[i] );
+		dir = sceIoDopen( buf );
+		if ( dir >= 0 )
+		{
+			sceIoDclose( dir );
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static const char *PSVita_GetLaunchParameter( char *outbuf )
+{
+	SceAppUtilAppEventParam param;
+	memset( &param, 0, sizeof( param ) );
+	sceAppUtilReceiveAppEvent( &param );
+	if( param.type == 0x05 )
+	{
+		sceAppUtilAppEventParseLiveArea( &param, outbuf );
+		return outbuf;
+	}
+	return NULL;
+}
+
+/*
+===========
+PSVita_GetArgv
+
+On the PS Vita under normal circumstances argv is empty, so we'll construct our own
+based on which button the user pressed in the LiveArea launcher.
+===========
+*/
+static int PSVita_GetArgv( int in_argc, char **in_argv, char ***out_argv )
+{
+	static const char *fake_argv[MAX_ARGV] = { "./eboot.bin", NULL };
+	int fake_argc = 1;
+	char tmp[2048] = { 0 };
+	SceAppUtilInitParam initParam = { 0 };
+	SceAppUtilBootParam bootParam = { 0 };
+
+	// on the Vita under normal circumstances argv is empty, unless we're launching from Change Game
+	sceAppUtilInit( &initParam, &bootParam );
+
+	if( in_argc > 1 )
+	{
+		// probably coming from Change Game, in which case we just need to keep the old args
+		*out_argv = in_argv;
+		return in_argc;
+	}
+
+	// got empty args, which means that we're probably coming from LiveArea
+	// construct argv based on which button the user pressed in the LiveArea launcher
+	if( PSVita_GetLaunchParameter( tmp ))
+	{
+		if( !strcmp( tmp, "dev" ))
+		{
+			// user hit the "Developer Mode" button, inject "-log" and "-dev" arguments
+			fake_argv[fake_argc++] = "-log";
+			fake_argv[fake_argc++] = "-dev";
+			fake_argv[fake_argc++] = "2";
+		}
+	}
+
+	*out_argv = (char **)fake_argv;
+	return fake_argc;
+}
+
+int main( int argc, char *argv[] )
+{
+	char tmp[1024] = { 0 };
+	char **fake_argv = NULL;
+	int fake_argc = 0;
+
+	// cd to the base dir immediately for library loading to work
+	if( PSVita_GetBasePath( tmp, sizeof( tmp )))
+	{
+		chdir( tmp );
+	}
+
+	// make the temp dir
+	mkdir( "temp", 0777 );
+
+	sceTouchSetSamplingState( SCE_TOUCH_PORT_BACK, SCE_TOUCH_SAMPLING_STATE_STOP );
+	scePowerSetArmClockFrequency( 444 );
+	scePowerSetBusClockFrequency( 222 );
+	scePowerSetGpuClockFrequency( 222 );
+	scePowerSetGpuXbarClockFrequency( 166 );
+	sceSysmoduleLoadModule( SCE_SYSMODULE_NET );
+
+	if( vrtld_init( 0 ) < 0 )
+	{
+		fprintf( stderr, "Fatal Error: Could not init vrtld:\n%s\n", vrtld_dlerror() );
+		return 0;
+	}
+
+	// init vitaGL, leaving some memory for DLL mapping
+	vglUseVram( GL_TRUE );
+	vglUseExtraMem( GL_TRUE );
+	vglUseCachedMem( GL_TRUE );
+	vglInitWithCustomThreshold( 0, 960, 544, VGL_MEM_THRESHOLD, 0, 0, 0, 0 );
+
+	// load dependencies
+	for ( size_t i = 0; i < sizeof(dep_list) / sizeof(*dep_list); ++i )
+	{
+		snprintf( tmp, sizeof(tmp), "bin/lib%s" DLL_EXT_STRING, dep_list[i] );
+		void *dep = dlopen( tmp, RTLD_NOW );
+		if ( !dep )
+		{
+			fprintf( stderr, "Could not load %s: %s\n", tmp, dlerror() );
+			return 0;
+		}
+	}
+
+	// now we can chain into the launcher DLL
+
+	void *launcher = dlopen( "bin/liblauncher" DLL_EXT_STRING, RTLD_NOW );
+	if ( !launcher )
+		launcher = dlopen( "bin/launcher" DLL_EXT_STRING, RTLD_NOW );
+
+	if ( !launcher )
+	{
+		fprintf( stderr, "%s\nFailed to load the launcher\n", dlerror() );
+		return 0;
+	}
+
+	LauncherMain_t emain = (LauncherMain_t)dlsym( launcher, "LauncherMain" );
+	if ( !emain )
+	{
+		fprintf( stderr, "Failed to load the launcher entry proc\n" );
+		return 0;
+	}
+
+	fake_argc = PSVita_GetArgv( argc, argv, &fake_argv );
+	return emain( fake_argc, fake_argv );
 }
 
 #elif defined (POSIX)

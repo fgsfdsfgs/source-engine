@@ -9,6 +9,8 @@
 #include <sys/types.h>
 #ifdef LINUX
 #include <linux/sysctl.h>
+#elif defined(PLATFORM_PSVITA)
+#include <psp2/power.h>
 #else
 #include <sys/sysctl.h>
 # ifdef __APPLE__
@@ -62,7 +64,7 @@ uint64 GetCPUFreqFromPROC()
 	return freq_hz;
 }
 
-#else
+#elif !defined(PLATFORM_PSVITA)
 
 // Linux
 uint64 GetCPUFreqFromPROC()
@@ -103,6 +105,8 @@ uint64 CalculateCPUFreq()
 {
 #if defined(__APPLE__) || defined(PLATFORM_BSD)
 	return GetCPUFreqFromPROC();
+#elif defined(PLATFORM_PSVITA)
+	return (uint64)scePowerGetArmClockFrequency() * 1000000ULL;
 #else
 	// Try to open cpuinfo_max_freq. If the kernel was built with cpu scaling support disabled, this will fail.
 	FILE *fp = fopen( "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq", "r" );

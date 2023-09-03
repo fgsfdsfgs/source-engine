@@ -36,8 +36,14 @@
 #pragma once
 #endif
 
-#if defined(_LINUX) || defined(PLATFORM_BSD)
+#if defined(_LINUX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
+#if defined(PLATFORM_PSVITA)
+#define VRTLD_LIBDL_COMPAT 1
+#include <vrtld.h>
+#else
 #include <dlfcn.h> // dlopen,dlclose, et al
+#endif
+
 #include <unistd.h>
 
 #define GetProcAddress dlsym

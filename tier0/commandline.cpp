@@ -17,7 +17,9 @@
 
 #include "tier0/memdbgon.h"
 
-#ifdef POSIX
+#ifdef PLATFORM_PSVITA
+#define _MAX_PATH 1024
+#elif defined(POSIX)
 #include <limits.h>
 #define _MAX_PATH PATH_MAX
 #endif

@@ -69,7 +69,11 @@
 #define GL_ALPHA_TEST_FUNC_QCOM 0x0BC1
 #define GL_ALPHA_TEST_REF_QCOM 0x0BC2
 
+#ifdef PLATFORM_PSVITA
+#define GLSL_VERSION "\n"
+#else
 #define GLSL_VERSION "#version 300 es\n"
+#endif
 
 extern void GLMDebugPrintf( const char *pMsg, ... );
 

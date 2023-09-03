@@ -54,7 +54,7 @@
 #error
 #endif
 
-#if defined(OSX) || defined(LINUX) || (defined (WIN32) && defined( DX_TO_GL_ABSTRACTION )) || defined(PLATFORM_BSD)
+#if defined(OSX) || defined(LINUX) || (defined (WIN32) && defined( DX_TO_GL_ABSTRACTION )) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 	#include "appframework/ilaunchermgr.h"
 	ILauncherMgr *g_pLauncherMgr = NULL;
 #endif
@@ -212,7 +212,14 @@ static void GetOpenGLVersion(int *major, int *minor, int *patch)
 		const char *version = (const char *) glGetString(GL_VERSION);
 		if (version)
 		{
+#ifdef PLATFORM_PSVITA
+			// vgl returns OpenGL ES 2.0
+			*major = 2;
+			*minor = 0;
+			*patch = 0;
+#else
 			sscanf( version, "%d.%d.%d", major, minor, patch );
+#endif
 		}
 	}
 }
@@ -296,7 +303,7 @@ static bool CheckOpenGLExtension_internal(const char *ext, const int coremajor, 
 				return false;
 			}
 		}
-#elif !defined ( OSX ) && !defined( __ANDROID__ )
+#elif !defined ( OSX ) && !defined( __ANDROID__ ) && !defined( PLATFORM_PSVITA )
 		if (!ptr)
 		{
 			static CDynamicFunctionOpenGL< true, Display *( APIENTRY *)( ), Display* > glXGetCurrentDisplay("glXGetCurrentDisplay");
@@ -377,7 +384,7 @@ COpenGLEntryPoints::COpenGLEntryPoints()
 	// !!! FIXME:  hint Apple's drivers and not because we rely on the
 	// !!! FIXME:  functionality. If so, just remove this check (and the
 	// !!! FIXME:  GL_NV_fence code entirely).
-#ifndef ANDROID // HACK
+#if !defined( ANDROID ) && !defined( PLATFORM_PSVITA ) // HACK
  	if ((m_bHave_OpenGL) && ((!m_bHave_GL_NV_fence) && (!m_bHave_GL_ARB_sync) && (!m_bHave_GL_APPLE_fence)))
  	{
  		Error( "Required OpenGL extension \"GL_NV_fence\", \"GL_ARB_sync\", or \"GL_APPLE_fence\" is not supported. Please upgrade your OpenGL driver." );
@@ -427,7 +434,7 @@ COpenGLEntryPoints::COpenGLEntryPoints()
 #undef GL_EXT
 #endif
 
-#ifdef OSX
+#if defined(OSX) || defined(PLATFORM_PSVITA)
 	m_bHave_GL_NV_bindless_texture = false;
 	m_bHave_GL_AMD_pinned_memory = false;
 #else
@@ -478,7 +485,7 @@ COpenGLEntryPoints::COpenGLEntryPoints()
 	}
 #endif
 
-#ifndef OSX
+#if !defined(OSX) && !defined(PLATFORM_PSVITA)
 	if ( !m_bHave_GL_EXT_texture_sRGB_decode )
  	{
  		Error( "Required OpenGL extension \"GL_EXT_texture_sRGB_decode\" is not supported. Please update your OpenGL driver.\n" );

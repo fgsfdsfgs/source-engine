@@ -45,6 +45,8 @@
 
 #if defined(_LINUX) && !defined(__ANDROID__)
 #include <GL/glx.h>
+#elif defined(PLATFORM_PSVITA)
+// bruh
 #endif
 
 // NOTE: This has to be the last file included!
@@ -54,7 +56,7 @@
 #error
 #endif
 
-#if defined(PLATFORM_BSD) || defined(OSX) || defined(LINUX) || (defined (WIN32) && defined( DX_TO_GL_ABSTRACTION ))
+#if defined(PLATFORM_BSD) || defined(OSX) || defined(LINUX) || defined(PLATFORM_PSVITA) || (defined (WIN32) && defined( DX_TO_GL_ABSTRACTION ))
 	#include "appframework/ilaunchermgr.h"
 	ILauncherMgr *g_pLauncherMgr = NULL;
 #endif

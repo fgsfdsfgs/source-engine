@@ -370,7 +370,11 @@ struct tm *Plat_gmtime( const time_t *timep, struct tm *result )
 
 time_t Plat_timegm( struct tm *timeptr )
 {
+#ifdef PLATFORM_PSVITA
+	return mktime( timeptr );
+#else
 	return timegm( timeptr );
+#endif
 }
 
 // Wraps the thread-safe versions of localtime
@@ -502,6 +506,13 @@ bool Plat_IsInDebugSession()
 	return ( tracerpid > 0 );
 }
 
+#elif defined( PLATFORM_PSVITA )
+
+bool Plat_IsInDebugSession()
+{
+	return false; // TODO
+}
+
 #endif // defined( LINUX )
 
 void Plat_DebugString( const char * psz )
@@ -559,7 +570,7 @@ PLATFORM_INTERFACE const char *Plat_GetCommandLineA()
 
 PLATFORM_INTERFACE bool GetMemoryInformation( MemoryInformation *pOutMemoryInfo )
 {
-	#if defined( LINUX ) || defined( OSX ) || defined(PLATFORM_BSD)
+	#if defined( LINUX ) || defined( OSX ) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 		return false;
 	#else
 		#error "Need to fill out GetMemoryInformation or at least return false for this platform"
@@ -571,6 +582,8 @@ PLATFORM_INTERFACE bool Is64BitOS()
 {
 #if defined OSX
 	return true;
+#elif defined(PLATFORM_PSVITA)
+	return false;
 #elif defined(LINUX) || defined(PLATFORM_BSD)
 	FILE *pp = popen( "uname -m", "r" );
 	if ( pp != NULL )
@@ -639,6 +652,7 @@ PLATFORM_INTERFACE void Plat_BeginWatchdogTimer( int nSecs )
 		InitWatchDogTimer();
 	}
 
+#ifndef PLATFORM_PSVITA
 	nSecs *= s_nWatchDogTimerTimeScale;
 	nSecs = MIN( nSecs, 5 * 60 );							// no more than 5 minutes no matter what
 	if ( nSecs )
@@ -647,12 +661,15 @@ PLATFORM_INTERFACE void Plat_BeginWatchdogTimer( int nSecs )
 		signal( SIGALRM, WatchDogHandler );
 		alarm( nSecs );
 	}
+#endif
 }
 
 PLATFORM_INTERFACE void Plat_EndWatchdogTimer( void )
 {
+#ifndef PLATFORM_PSVITA
 	alarm( 0 );
 	signal( SIGALRM, SIG_DFL );
+#endif
 	s_WatchdogTime = 0;
 }
 
@@ -781,7 +798,7 @@ static void InstallHooks( void )
 	__realloc_hook = ReallocHook;
 
 }
-#elif OSX || PLATFORM_BSD
+#elif OSX || PLATFORM_BSD || PLATFORM_PSVITA
 
 
 static void RemoveHooks( void )

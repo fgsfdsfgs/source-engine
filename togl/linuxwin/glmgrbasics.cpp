@@ -2630,7 +2630,7 @@ bool	GLMDetectOGLP( void )
 	#include <unistd.h>  
 #ifdef LINUX
 #include <linux/sysctl.h>
-#else
+#elif !defined(PLATFORM_PSVITA)
 #include <sys/sysctl.h>
 #endif
 #endif
@@ -3116,7 +3116,7 @@ void	GLMSetIndent( int indent )
 char sg_pPIXName[128];
 
 
-#ifndef OSX
+#if 0
 ConVar gl_telemetry_gpu_pipeline_flushing( "gl_telemetry_gpu_pipeline_flushing", "0" );
 
 class CGPUTimestampManager
@@ -3718,13 +3718,13 @@ void GLMGPUTimestampManagerTick()
 	g_GPUTimestampManager.Tick();
 }
 
-#endif // !OSX
+#endif // !OSX && !PLATFORM_PSVITA
 
 static uint g_nPIXEventIndex;
 
 void GLMBeginPIXEvent( const char *str )
 {
-#ifndef OSX
+#if !defined(OSX) && !defined(PLATFORM_PSVITA)
 	char szName[1024];
 	V_snprintf( szName, sizeof( szName ), "[ID:%u FR:%u] %s", g_nPIXEventIndex, g_GPUTimestampManager.GetCurFrame(), str );
 	const char *p = tmDynamicString( TELEMETRY_LEVEL2, szName ); //p can be null if tm is getting shut down
@@ -3733,7 +3733,7 @@ void GLMBeginPIXEvent( const char *str )
 	g_nPIXEventIndex++;
 			
 	g_GPUTimestampManager.BeginZone( p );
-#endif // !OSX
+#endif // !OSX && !PLATFORM_PSVITA
 	V_strncpy( sg_pPIXName, str, 128 );
 
 #if defined( OSX ) && defined( CGLPROFILER_ENABLE )
@@ -3748,7 +3748,7 @@ void GLMBeginPIXEvent( const char *str )
 
 void GLMEndPIXEvent( void )
 {
-#ifndef OSX
+#if !defined(OSX) && !defined(PLATFORM_PSVITA)
 	g_GPUTimestampManager.EndZone();
 #endif
 
@@ -4145,11 +4145,13 @@ void CGLMFileMirror::WriteFile( void )
 
 void	CGLMFileMirror::OpenInEditor( bool foreground )
 {
+#ifndef PLATFORM_PSVITA
 	char temp[64000];
 	
 	// pass -b if no desire to bring editor to foreground
 	sprintf(temp,"/usr/bin/bbedit %s %s", foreground ? "" : "-b", m_path );
 	system( temp );
+#endif
 }
 
 

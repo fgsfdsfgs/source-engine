@@ -58,7 +58,10 @@ def build(bld):
 
 	defines = []
 
-	libs = ['tier0','tier1','tier2','tier3','vstdlib','SDL2']
+	libs = ['tier0','tier1','tier2','tier3','vstdlib']
+
+	if bld.env.DEST_OS != 'psvita':
+		libs += ['SDL2']
 
 	if bld.env.DEST_OS == 'win32':
 		libs += ['USER32', 'IMM32', 'GDI32', 'SHELL32', 'OLE32', 'SHLWAPI', 'vgui_surfacelib', 'WINMM']

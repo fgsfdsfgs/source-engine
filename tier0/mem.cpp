@@ -42,6 +42,13 @@ void MemAllocOOMError( size_t nSize )
 	{
 		s_oomerror_called = true;
 
+#ifdef PLATFORM_PSVITA
+		fprintf( stderr, "MemAllocOOMError: %u bytes, crashing!\n", (uint)nSize );
+		fflush( stderr );
+		void (*bruh)() = NULL;
+		bruh();
+#endif
+
 		MinidumpUserStreamInfoAppend( "MemAllocOOMError: %u bytes\n", (uint)nSize );
 
 		//$ TODO: Need a good error message here.

@@ -2357,7 +2357,7 @@ bool V_MakeRelativePath( const char *pFullPath, const char *pDirectory, char *pR
 bool V_IsAbsolutePath( const char *pStr )
 {
 	bool bIsAbsolute = ( pStr[0] && pStr[1] == ':' ) || pStr[0] == '/' || pStr[0] == '\\';
-	if ( IsX360() && !bIsAbsolute )
+	if ( ( IsX360() || IsPSVita() ) && !bIsAbsolute )
 	{
 		bIsAbsolute = ( V_stristr( pStr, ":" ) != NULL );
 	}
@@ -2953,7 +2953,7 @@ extern "C" void qsort_s( void *base, size_t num, size_t width, int (*compare )(v
 
 void V_qsort_s( void *base, size_t num, size_t width, int ( __cdecl *compare )(void *, const void *, const void *), void * context ) 
 {
-#if defined(OSX) || defined(PLATFORM_BSD)
+#if defined(OSX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 	// the arguments are swapped 'round on the mac - awesome, huh?
 	return qsort_r( base, num, width, context, compare );
 #else

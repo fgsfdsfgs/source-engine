@@ -41,8 +41,13 @@ void GLMRendererInfo::Init( GLMRendererInfoFields *info )
         m_info.m_ati = true;
         m_info.m_atiNewer = true;
 
+#ifdef PLATFORM_PSVITA
+        m_info.m_hasGammaWrites = false;
+	m_info.m_cantAttachSRGB = true;
+#else
         m_info.m_hasGammaWrites = true;
 	m_info.m_cantAttachSRGB = false;
+#endif
 
         // If you haven't created a GL context by now (and initialized gGL), you're about to crash.
 
@@ -65,7 +70,11 @@ void GLMRendererInfo::Init( GLMRendererInfoFields *info )
                 m_info.m_hasNativeClipVertexMode = true;
         }
         
-#ifdef TOGLES
+#ifdef PLATFORM_PSVITA
+        m_info.m_hasOcclusionQuery = false;
+        m_info.m_hasFramebufferBlit = false;
+        m_info.m_hasUniformBuffers = false;
+#elif defined TOGLES
         m_info.m_hasOcclusionQuery = true;
         m_info.m_hasFramebufferBlit = true;
         m_info.m_hasUniformBuffers = true;
@@ -109,6 +118,8 @@ void GLMRendererInfo::Init( GLMRendererInfoFields *info )
 
 #if defined( OSX )
         m_info.m_cantBlitReliably = m_info.m_intel;             //FIXME X3100&10.6.3 has problems blitting.. adjust this if bug fixed in 10.6.4
+#elif defined( PLATFORM_PSVITA )
+        m_info.m_cantBlitReliably = true;                       // blitting not implemented
 #else
     // m_cantBlitReliably path doesn't work right now, and the Intel path is different for us on Linux/Win7 anyway
         m_info.m_cantBlitReliably = false;
@@ -127,7 +138,7 @@ void GLMRendererInfo::Init( GLMRendererInfoFields *info )
         m_info.m_cantResolveFlipped     = false;
         
 
-#if defined( OSX )
+#if defined( OSX ) || defined( PLATFORM_PSVITA )
         m_info.m_cantResolveScaled = true;                                                              // generally true until new extension ships     
 #else
         // DON'T just slam this to false and run without first testing with -gl_debug enabled on NVidia/AMD/etc.

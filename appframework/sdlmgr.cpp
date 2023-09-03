@@ -19,7 +19,11 @@
 
 #include "tier1/utllinkedlist.h"
 #include "tier1/convar.h"
-#ifdef TOGLES
+
+#ifdef PLATFORM_PSVITA
+// can't #include vitaGL.h, it'll fuck up the GL defs
+extern "C" void *vglGetProcAddress( const char* );
+#elif defined TOGLES
 #include <EGL/egl.h>
 #endif
 
@@ -65,16 +69,19 @@ static void *l_egl = NULL;
 static void *l_gles = NULL;
 
 typedef void *(*t_glGetProcAddress)( const char * );
+t_glGetProcAddress _glGetProcAddress;
+
+#ifndef PLATFORM_PSVITA
 typedef EGLBoolean (*t_eglBindAPI)(EGLenum api);
 typedef EGLBoolean (*t_eglInitialize)(EGLDisplay display, EGLint *major, EGLint *minor);
 typedef EGLDisplay (*t_eglGetDisplay)(NativeDisplayType native_display);
 typedef char const *(*t_eglQueryString)(EGLDisplay display, EGLint name);
 
 t_eglBindAPI _eglBindAPI;
-t_glGetProcAddress _glGetProcAddress;
 t_eglInitialize _eglInitialize;
 t_eglGetDisplay _eglGetDisplay;
 t_eglQueryString _eglQueryString;
+#endif
 #endif
 
 /*
@@ -192,7 +199,7 @@ void *VoidFnPtrLookup_GlMgr(const char *fn, bool &okay, const bool bRequired, vo
 {
 	void *retval = NULL;
 
-#ifndef TOGLES // TODO(nillerusr): remove this hack
+#if !defined TOGLES && !defined PLATFORM_PSVITA // TODO(nillerusr): remove this hack
 	if ((!okay) && (!bRequired))  // always look up if required (so we get a complete list of crucial missing symbols).
 		return NULL;
 #endif
@@ -205,7 +212,11 @@ void *VoidFnPtrLookup_GlMgr(const char *fn, bool &okay, const bool bRequired, vo
 	if( _glGetProcAddress )
 	{
 		retval = _glGetProcAddress(fn);
-
+#if defined(PLATFORM_PSVITA)
+		// try the main module
+		if( !retval )
+			retval = dlsym( NULL, fn );
+#endif
 		if( !retval && l_gles )
 			retval = dlsym( l_gles, fn );
 	}
@@ -232,7 +243,7 @@ void *VoidFnPtrLookup_GlMgr(const char *fn, bool &okay, const bool bRequired, vo
 	//  You always have to check that the extension is supported;
 	//  an implementation MAY return NULL in this case, but it doesn't have to (and doesn't, with the DRI drivers).
 
-#ifdef TOGLES // TODO(nillerusr): remove this hack
+#if defined TOGLES || defined PLATFORM_PSVITA // TODO(nillerusr): remove this hack
 	okay = retval != NULL;
 #else
 	okay = (okay && (retval != NULL));
@@ -270,7 +281,7 @@ public:
 
 	// Get the next N events. The function returns the number of events that were filled into your array.
 	virtual int GetEvents( CCocoaEvent *pEvents, int nMaxEventsToReturn, bool debugEvents = false );
-#if defined(LINUX) || defined(PLATFORM_BSD)
+#if defined(LINUX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 	virtual int PeekAndRemoveKeyboardEvents( bool *pbEsc, bool *pbReturn, bool *pbSpace, bool debugEvent = false );
 #endif
 
@@ -521,7 +532,7 @@ InitReturnVal_t CSDLMgr::Init()
 			SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
 		}
 
-#if defined( TOGLES )
+#if defined( TOGLES ) && !defined( PLATFORM_PSVITA )
 		if (SDL_GL_LoadLibrary("libGLESv3.so") == -1)
 #else
 		if (SDL_GL_LoadLibrary(NULL) == -1)
@@ -596,6 +607,9 @@ InitReturnVal_t CSDLMgr::Init()
 
 
 #ifdef TOGLES
+#ifdef PLATFORM_PSVITA
+	_glGetProcAddress = vglGetProcAddress;
+#else
 	l_egl = dlopen("libEGL.so", RTLD_LAZY);
 	l_gles = dlopen("libGLESv3.so", RTLD_LAZY);
 
@@ -619,6 +633,7 @@ InitReturnVal_t CSDLMgr::Init()
 			&& strstr(_eglQueryString(display, EGL_EXTENSIONS) ,"EGL_KHR_gl_colorspace") )
 				SET_GL_ATTR(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1)
 	}
+#endif
 #elif ANDROID
 	bool m_bOGL = false;
 
@@ -1004,7 +1019,7 @@ int CSDLMgr::GetEvents( CCocoaEvent *pEvents, int nMaxEventsToReturn, bool debug
 	return nToWrite;
 }
 
-#if defined(LINUX) || defined(PLATFORM_BSD)
+#if defined(LINUX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 
 int CSDLMgr::PeekAndRemoveKeyboardEvents( bool *pbEsc, bool *pbReturn, bool *pbSpace, bool debugEvent )
 {

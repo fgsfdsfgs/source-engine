@@ -12,7 +12,7 @@ FORCEINLINE uint32 bitmix32(uint32 a)
 	return a;
 }
 
-#ifndef OSX
+#if !defined OSX && !defined PLATFORM_PSVITA
 
 FORCEINLINE GLuint GLMContext::FindSamplerObject( const GLMTexSamplingParams &desiredParams )
 {
@@ -40,7 +40,7 @@ FORCEINLINE GLuint GLMContext::FindSamplerObject( const GLMTexSamplingParams &de
 	return m_samplerObjectHash[h].m_samplerObject;
 }
 
-#endif // !OSX
+#endif // !OSX && !PLATFORM_PSVITA
 
 // BE VERY CAREFUL WHAT YOU DO IN HERE. This is called on every batch, even seemingly simple changes can kill perf.
 FORCEINLINE void GLMContext::FlushDrawStates( uint nStartIndex, uint nEndIndex, uint nBaseVertex )	// shadersOn = true for draw calls, false for clear calls
@@ -255,7 +255,7 @@ FORCEINLINE void GLMContext::FlushDrawStates( uint nStartIndex, uint nEndIndex, 
 	
 	GL_BATCH_PERF( m_FlushStats.m_nNumChangedSamplers += m_nNumDirtySamplers );
 
-#if !defined( OSX ) // no support for sampler objects in OSX 10.6 (GL 2.1 profile)
+#if !defined( OSX ) && !defined( PLATFORM_PSVITA ) // no support for sampler objects in OSX 10.6 (GL 2.1 profile)
 	if ( m_bUseSamplerObjects)
 	{
 		while ( m_nNumDirtySamplers )
@@ -287,7 +287,7 @@ FORCEINLINE void GLMContext::FlushDrawStates( uint nStartIndex, uint nEndIndex, 
 		}
 	}
 	else
-#endif // if !defined( OSX )
+#endif // if !defined( OSX ) && !defined( PLATFORM_PSVITA )
 	{
 		while ( m_nNumDirtySamplers )
 		{
@@ -306,7 +306,7 @@ FORCEINLINE void GLMContext::FlushDrawStates( uint nStartIndex, uint nEndIndex, 
 
 				pTex->m_SamplingParams = m_samplers[nSamplerIndex].m_samp;
 
-#if defined( OSX )
+#if defined( OSX ) || defined( PLATFORM_PSVITA )
 				if( pTex && !( gGL->m_bHave_GL_EXT_texture_sRGB_decode ) )
 				{
 					// see if requested SRGB state differs from the known one

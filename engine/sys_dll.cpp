@@ -711,7 +711,10 @@ void Sys_InitMemory( void )
 			line = ptr;
 		}
 	}
-
+#elif defined(PLATFORM_PSVITA)
+	extern unsigned int _newlib_heap_size_user;
+	memsize = _newlib_heap_size_user;
+	fprintf( stderr, "%llu bytes of memory available\n", memsize );
 #else
 #error Write me.
 #endif
@@ -1041,7 +1044,7 @@ int Sys_InitGame( CreateInterfaceFn appSystemFactory, const char* pBaseDir, void
 	Q_FixSlashes( s_pBaseDir );
 	host_parms.basedir = s_pBaseDir;
 
-#ifndef _X360
+#if !defined _X360 && !defined PLATFORM_PSVITA
 	if ( CommandLine()->FindParm ( "-pidfile" ) )
 	{	
 		FileHandle_t pidFile = g_pFileSystem->Open( CommandLine()->ParmValue ( "-pidfile", "srcds.pid" ), "w+" );

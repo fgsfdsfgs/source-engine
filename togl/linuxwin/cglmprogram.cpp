@@ -157,9 +157,13 @@ CGLMProgram::~CGLMProgram( )
 	GLMShaderDesc *glslDesc = &m_descs[kGLMGLSL];
 	if (glslDesc->m_object.glsl)
 	{
+#if PLATFORM_PSVITA
+		gGL->glDeleteShader( glslDesc->m_object.glsl );
+#else
 		//gGL->glDeleteShader( (uint)glslDesc->m_object.glsl );	// why do I need a cast here again ?
         gGL->glDeleteObjectARB( glslDesc->m_object.glsl ); // because you call the wrong api
 		glslDesc->m_object.glsl = 0;
+#endif
 	}
 
 #if GLMDEBUG
@@ -372,6 +376,10 @@ void	CGLMProgram::Compile( EGLMProgramLang lang )
 	{
 		case kGLMARB:
 		{
+#ifdef PLATFORM_PSVITA
+			// ARB shader shit not supported
+			AssertOnce( false );
+#else
 			GLMShaderDesc *arbDesc;
 			
 			arbDesc = &m_descs[ kGLMARB ];
@@ -414,6 +422,7 @@ void	CGLMProgram::Compile( EGLMProgramLang lang )
 			
 			CheckValidity( lang );
 			// leave it bound n enabled, don't care (draw will sort it all out)
+#endif // PLATFORM_PSVITA
 		}
 		break;
 

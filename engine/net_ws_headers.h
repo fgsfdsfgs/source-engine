@@ -53,8 +53,10 @@ typedef int socklen_t;
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include <sys/param.h>
+#ifndef PLATFORM_PSVITA
 #include <sys/ioctl.h>
 #include <sys/uio.h>
+#endif
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -68,7 +70,12 @@ typedef int socklen_t;
 #define WSAEADDRINUSE		EADDRINUSE
 #define WSAENOTCONN			ENOTCONN
 
+#ifdef PLATFORM_PSVITA
+#include "net_psvita.h"
+#else
 #define ioctlsocket ioctl
+#endif
+
 #define closesocket close
 
 #undef SOCKET

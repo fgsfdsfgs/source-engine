@@ -420,6 +420,8 @@ static uint8 LogicalProcessorsPerPackage(void)
 {
 #if defined( _X360 )
 	return 2;
+#elif defined( PLATFORM_PSVITA )
+	return 3;
 #else
 	// EBX[23:16] indicate number of logical processors per package
 	const unsigned NUM_LOGICAL_BITS = 0x00FF0000;
@@ -593,6 +595,9 @@ const CPUInformation* GetCPUInformation()
 	sysctl(mib, 2, &num_cpu, &len, NULL, 0);
 	pi.m_nPhysicalProcessors = num_cpu;
 	pi.m_nLogicalProcessors  = num_cpu;
+#elif defined(PLATFORM_PSVITA)
+	pi.m_nPhysicalProcessors = 1;
+	pi.m_nLogicalProcessors  = 3; // one core unusable
 #endif
 
 	// Determine Processor Features:

@@ -15,7 +15,9 @@
 #include <direct.h>
 #elif defined(POSIX)
 #include <sys/stat.h>
-
+#ifdef PLATFORM_PSVITA
+#include <fcntl.h>
+#endif
 #ifdef OSX
 #include <copyfile.h>
 #import <mach/mach_host.h>
@@ -110,7 +112,7 @@
 #define BUG_REPOSITORY_URL "\\\\fileserver\\bugs"
 #elif defined(OSX)
 #define BUG_REPOSITORY_URL "/Volumes/bugs"
-#elif defined(LINUX) || defined(PLATFORM_BSD)
+#elif defined(LINUX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 #define BUG_REPOSITORY_URL "\\\\fileserver\\bugs"
 #else
 //#error
@@ -177,6 +179,8 @@ unsigned long GetRam()
 		fclose( fh );
 	}
 	return Ram;
+#elif defined( PLATFORM_PSVITA )
+	return 1 * 1024 * 1024; // TODO?
 #else
 	Assert( !"Impl GetRam" );
 	return 0;
@@ -2257,7 +2261,7 @@ void NonFileSystem_CreatePath (const char *path)
 	}
 }
 
-#if defined(LINUX) || defined(PLATFORM_BSD)
+#if defined(LINUX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 #define COPYFILE_ALL 0
 #define BSIZE 65535
 int copyfile( const char *local, const char *remote, void *ignored, int ignoredFlags )

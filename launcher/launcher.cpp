@@ -206,7 +206,7 @@ class CVCRHelpers : public IVCRHelpers
 public:
 	virtual void ErrorMessage( const char *pMsg )
 	{
-#if defined( WIN32 ) || defined( LINUX ) || defined(PLATFORM_BSD)
+#if defined( WIN32 ) || defined( LINUX ) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 		NOVCR( ::MessageBox( NULL, pMsg, "VCR Error", MB_OK ) );
 #endif
 	}
@@ -906,6 +906,7 @@ const char *CSourceAppSystemGroup::DetermineDefaultGame()
 
 int MessageBox( HWND hWnd, const char *message, const char *header, unsigned uType )
 {
+	fprintf( stderr, "Message box: %s:\n%s\n", header, message );
 	SDL_ShowSimpleMessageBox( 0, header, message, GetAssertDialogParent() );
 	return 0;
 }
@@ -926,7 +927,9 @@ bool GrabSourceMutex()
 	if( g_MultiRun )
 		return true;
 
-#ifdef WIN32
+#ifdef PLATFORM_PSVITA
+	// bruh
+#elif defined(WIN32)
 	if ( IsPC() )
 	{
 		// don't allow more than one instance to run
@@ -1588,7 +1591,7 @@ DLL_EXPORT int LauncherMain( int argc, char **argv )
 			unlink( RELAUNCH_FILE );
 		}
 	}
-#elif defined( _X360 )
+#elif defined( _X360 ) || defined( PLATFORM_PSVITA )
 #else
 #error
 #endif

@@ -47,7 +47,7 @@ extern ConVar gl_errorchecknone;
 
 // how many microseconds to wait after a failed query-available test
 // presently on MTGL this doesn't happen, but it could change, keep this handy
-ConVar  gl_nullqueries( "gl_nullqueries", "0" );
+ConVar  gl_nullqueries( "gl_nullqueries", "1" );
 
 
 //===============================================================================

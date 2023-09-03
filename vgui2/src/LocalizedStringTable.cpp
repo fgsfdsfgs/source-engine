@@ -305,7 +305,7 @@ bool CLocalizedStringTable::AddFile( const char *szFileName, const char *pPathID
 	// for "GAME" when running -game episodic, it'll show:
 	// "basedir/episodic/;basedir/hl2"
 	// We do this manually instead of just asking for the first match to support bIncludeFallbackSearchPaths
-	char searchPaths[ MAX_PATH*50 ] = { 0 }; // allow for 50 search paths
+	char searchPaths[ MAX_PATH*30 ] = { 0 }; // allow for 30 search paths
 
 	Verify( g_pFullFileSystem->GetSearchPath( pPathID, true, searchPaths, sizeof( searchPaths ) ) < sizeof(searchPaths) );
 

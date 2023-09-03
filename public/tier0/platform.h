@@ -172,6 +172,12 @@
 		#define IsBSD() false
 	#endif
 
+	#ifdef PLATFORM_PSVITA
+		#define IsPSVita() true
+	#else
+		#define IsPSVita() false
+	#endif
+
 	#define IsPosix() true
 	#define IsPlatformOpenGL() true
 #else
@@ -413,6 +419,9 @@ typedef unsigned int DWORD;
 #endif
 typedef unsigned short WORD;
 typedef void * HINSTANCE;
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 #define _MAX_PATH PATH_MAX
 #define __cdecl
 #define __stdcall
@@ -565,7 +574,7 @@ typedef void * HINSTANCE;
 //-----------------------------------------------------------------------------
 #if defined( GNUC )
 	#define stackalloc( _size )		alloca( ALIGN_VALUE( _size, 16 ) )
-#if defined(_LINUX) || defined(PLATFORM_BSD)
+#if defined(_LINUX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 	#define mallocsize( _p )	( malloc_usable_size( _p ) )
 #elif defined(OSX)
 	#define mallocsize( _p )	( malloc_size( _p ) )
@@ -1408,7 +1417,7 @@ PLATFORM_INTERFACE void* Plat_SimpleLog( const tchar* file, int line );
 //-----------------------------------------------------------------------------
 // Returns true if debugger attached, false otherwise
 //-----------------------------------------------------------------------------
-#if defined(_WIN32) || defined(LINUX) || defined(OSX) || defined(PLATFORM_BSD)
+#if defined(_WIN32) || defined(LINUX) || defined(OSX) || defined(PLATFORM_BSD) || defined(PLATFORM_PSVITA)
 PLATFORM_INTERFACE bool Plat_IsInDebugSession();
 PLATFORM_INTERFACE void Plat_DebugString( const char * );
 #else

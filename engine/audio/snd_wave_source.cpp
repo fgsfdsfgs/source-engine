@@ -1849,7 +1849,15 @@ CAudioSource *Audio_CreateMemoryWave( CSfxTable *pSfx )
 	return CreateWave( pSfx, false );
 }
 
-float GetMP3Duration_Helper( char const *filename );
+float GetMP3Duration_Helper( char const *filename )
+#ifdef PLATFORM_PSVITA
+{
+	return 0.0f; // FIXME
+}
+#else
+;
+#endif
+
 static float Audio_GetMP3Duration( char const *pName )
 {
 	// Deduce from file

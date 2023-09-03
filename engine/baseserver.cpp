@@ -1151,6 +1151,9 @@ void CBaseServer::CalculateCPUUsage( void )
 			memcpy(&lastTotalTime,&totalTime,sizeof(__int64));
 			lastAvg=m_fLastCPUCheckTime;
 		}
+#elif defined ( PLATFORM_PSVITA )
+		// ???
+		m_fCPUPercent = 0.5;
 #elif defined ( POSIX )
 		static struct rusage s_lastUsage;
 		static float s_lastAvg = 0;

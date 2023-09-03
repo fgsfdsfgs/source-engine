@@ -17,8 +17,8 @@ def configure(conf):
 		'_snprintf=use_Q_snprintf_instead'])
 
 def build(bld):
-	source = [
-		'linuxwin/dx9asmtogl2.cpp',
+	source = ['linuxwin/dx9asmtocg.cpp'] if bld.env.DEST_OS == "psvita" else ['linuxwin/dx9asmtogl2.cpp']
+	source += [
 		'linuxwin/dxabstract.cpp',
 		'linuxwin/glentrypoints.cpp',	
 		'linuxwin/glmgr.cpp',			

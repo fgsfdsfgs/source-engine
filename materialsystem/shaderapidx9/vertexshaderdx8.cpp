@@ -12,7 +12,9 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <errno.h>
+#ifndef PLATFORM_PSVITA
 #include <sys/ioctl.h>
+#endif
 #define closesocket close
 #define WSAGetLastError() errno
 #undef SOCKET

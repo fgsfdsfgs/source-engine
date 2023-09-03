@@ -90,7 +90,12 @@
 #endif
 
 #if POSIX
+#if defined(PLATFORM_PSVITA)
+#define VRTLD_LIBDL_COMPAT 1
+#include <vrtld.h>
+#else
 #include <dlfcn.h>
+#endif
 #endif
 
 #if defined( _X360 )
@@ -268,7 +273,13 @@ extern "C" void __cdecl FailSafe( unsigned int uStructuredExceptionCode, struct 
 
 #endif
 
-#if defined( POSIX )
+#if defined( PLATFORM_PSVITA )
+
+static jmp_buf g_mark;
+#define DO_TRY		if ( setjmp( g_mark ) == 0 )
+#define DO_CATCH	else
+
+#elif defined( POSIX )
 
 static sigjmp_buf g_mark;
 static void posix_signal_handler( int i )
@@ -302,7 +313,7 @@ static bool IsSourceModLoaded()
 		if ( GetModuleHandleA( s_pFileNames[ i ] ) )
 			return true;
 	}
-#else
+#elif !defined( PLATFORM_PSVITA )
 	FILE *fh = fopen( "/proc/self/maps", "r" );
 
 	if ( fh )
@@ -384,7 +395,7 @@ public:
 		// warning C4535: calling _set_se_translator() requires /EHa
 		#pragma warning( suppress : 4535 )
 		_se_translator_function curfilter = _set_se_translator( &FailSafe );
-#elif defined( POSIX )
+#elif defined( POSIX ) && !defined( PLATFORM_PSVITA )
 		// Only need to worry about this function crashing when we're dealing with a real crash.
 		sig_t curfilter = bRealCrash ? signal( SIGSEGV, posix_signal_handler ) : 0;
 #endif
@@ -481,7 +492,7 @@ public:
 		
 #ifdef IS_WINDOWS_PC
 		_set_se_translator( curfilter );
-#elif defined( POSIX )
+#elif defined( POSIX ) && !defined( PLATFORM_PSVITA )
 		if ( bRealCrash )
 			signal( SIGSEGV, curfilter );
 #endif

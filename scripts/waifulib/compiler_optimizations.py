@@ -68,7 +68,7 @@ CFLAGS = {
 	'release': {
 		'msvc':    ['/O2', '/MT'],
 		'owcc':    ['-O3', '-fomit-leaf-frame-pointer', '-fomit-frame-pointer', '-finline-functions', '-finline-limit=512'],
-		'default': ['-O2', '-funsafe-math-optimizations', '-ftree-vectorize', '-ffast-math']
+		'default': ['-Os', '-funsafe-math-optimizations', '-ftree-vectorize', '-ffast-math']
 	},
 	'debug': {
 		'msvc':    ['/Od', '/MTd'],
@@ -158,5 +158,11 @@ def get_optimization_flags(conf):
 
 	if conf.options.POLLY:
 		cflags   += conf.get_flags_by_compiler(POLLY_CFLAGS, conf.env.COMPILER_CC)
+
+	if conf.env.DEST_OS == 'psvita':
+			# this optimization is broken in vitasdk
+			cflags.append('-fno-optimize-sibling-calls')
+			# remove fvisibility to allow everything to be exported by default
+			cflags.remove('-fvisibility=hidden')
 
 	return cflags, linkflags

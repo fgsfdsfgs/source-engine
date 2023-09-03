@@ -28,6 +28,8 @@ ANDROID_NDK_SYSROOT_FLAG_MAX = 19 # latest NDK that need --sysroot flag
 ANDROID_NDK_API_MIN = { 10: 3, 19: 16, 20: 16 } # minimal API level ndk revision supports
 ANDROID_64BIT_API_MIN = 21 # minimal API level that supports 64-bit targets
 
+PSVITA_ENVVARS = ['VITASDK']
+
 # This class does support ONLY r10e and r19c/r20 NDK
 class Android:
 	ctx            = None # waf context
@@ -317,10 +319,82 @@ class Android:
 				ldflags += ['-march=armv5te']
 		return ldflags
 
+class PSVita:
+	ctx          = None # waf context
+	arch         ='armeabi-v7a-hard'
+	vitasdk_dir  = None
+
+	def __init__(self, ctx):
+		self.ctx = ctx
+
+		for i in PSVITA_ENVVARS:
+			self.vitasdk_dir = os.getenv(i)
+			if self.vitasdk_dir != None:
+				break
+		else:
+			ctx.fatal('Set %s environment variable pointing to the VitaSDK directory!' %
+				' or '.join(PSVITA_ENVVARS))
+
+	def gen_toolchain_prefix(self):
+		return 'arm-vita-eabi-'
+
+	def gen_gcc_toolchain_path(self):
+		return os.path.join(self.vitasdk_dir, 'bin', self.gen_toolchain_prefix())
+
+	def prefix(self):
+		return self.vitasdk_dir
+
+	def cc(self):
+		return self.gen_gcc_toolchain_path() + 'gcc'
+
+	def cxx(self):
+		return self.gen_gcc_toolchain_path() + 'g++'
+
+	def strip(self):
+		return self.gen_gcc_toolchain_path() + 'strip'
+
+	def ar(self):
+		return self.gen_gcc_toolchain_path() + 'ar'
+
+	def pkgconfig(self):
+		return self.gen_gcc_toolchain_path() + 'pkg-config'
+
+	def cflags(self, cxx = False):
+		cflags = []
+		# arch flags (fuck off thumb)
+		cflags += ['-D__vita__', '-marm', '-mcpu=cortex-a9', '-mtune=cortex-a9', '-mfpu=neon', '-DHAVE_EFFICIENT_UNALIGNED_ACCESS', '-DVECTORIZE_SINCOS']
+		# necessary linker flags
+		cflags += ['-Wl,-q', '-Wl,-z,nocopyreloc']
+		# this optimization is broken in vitasdk
+		cflags += ['-fno-optimize-sibling-calls']
+		# disable some ARM bullshit
+		cflags += ['-fno-short-enums', '-Wno-attributes']
+		# this breaks dynamic libs
+		cflags += ['-fno-use-cxa-atexit']
+		# base include dir
+		cflags += ['-isystem %s/arm-vita-eabi/include' % self.vitasdk_dir]
+		# SDL include dir
+		cflags += ['-I%s/arm-vita-eabi/include/SDL2' % self.vitasdk_dir]
+		return cflags
+
+	# they go before object list
+	def linkflags(self):
+		linkflags = ['-Wl,--hash-style=sysv', '-Wl,-q', '-Wl,-z,nocopyreloc', '-mtune=cortex-a9', '-mfpu=neon']
+		# enforce no-short-enums again
+		linkflags += ['-Wl,-no-enum-size-warning', '-fno-short-enums']
+		return linkflags
+
+	def ldflags(self):
+		ldflags = []
+		return ldflags
+
 def options(opt):
 	android = opt.add_option_group('Android options')
 	android.add_option('--android', action='store', dest='ANDROID_OPTS', default=None,
 		help='enable building for android, format: --android=<arch>,<toolchain>,<api>, example: --android=armeabi-v7a-hard,4.9,21')
+	psvita = opt.add_option_group('PSVita options')
+	psvita.add_option('--psvita', action='store_true', dest='PSVITA', default=False,
+		help='enable building for psvita')
 
 def configure(conf):
 	if conf.options.ANDROID_OPTS:
@@ -367,8 +441,24 @@ def configure(conf):
 
 		# conf.env.ANDROID_OPTS = android
 		conf.env.DEST_OS2 = 'android'
+	elif conf.options.PSVITA:
+		conf.psvita = psvita = PSVita(conf)
+		conf.environ['CC'] = psvita.cc()
+		conf.environ['CXX'] = psvita.cxx()
+		conf.environ['STRIP'] = psvita.strip()
+		conf.environ['AR'] = psvita.ar()
+		conf.env.PKGCONFIG = psvita.pkgconfig()
+		conf.env.CFLAGS += psvita.cflags()
+		conf.env.CXXFLAGS += psvita.cflags(True)
+		conf.env.LINKFLAGS += psvita.linkflags()
+		conf.env.LDFLAGS += psvita.ldflags()
+		conf.env.HAVE_M = True
+		conf.env.LIB_M = ['m']
+		conf.env.VRTLD = ['vrtld']
+		conf.env.DEST_OS = 'psvita'
+		conf.env.FT2_INCLUDE = '%s/arm-vita-eabi/include/freetype2' % psvita.vitasdk_dir
 
-	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android' })
+	MACRO_TO_DESTOS = OrderedDict({ '__ANDROID__' : 'android', '__vita__' : 'psvita' })
 	for k in c_config.MACRO_TO_DESTOS:
 		MACRO_TO_DESTOS[k] = c_config.MACRO_TO_DESTOS[k] # ordering is important
 	c_config.MACRO_TO_DESTOS  = MACRO_TO_DESTOS
@@ -382,13 +472,24 @@ def post_compiler_cxx_configure(conf):
 		if conf.android.ndk_rev == 19:
 			conf.env.CXXFLAGS_cxxshlib += ['-static-libstdc++']
 			conf.env.LDFLAGS_cxxshlib += ['-static-libstdc++']
+	elif conf.options.PSVITA:
+		# on the Vita, allow undefined symbols by default, which is needed for vrtld to work
+		# we'll specifically disallow them for the engine executable
+		# additionally, shared libs are linked without standard libs, we'll add those back in the engine wscript
+		conf.env.append_unique('CXXFLAGS_cxxshlib', ['-fPIC'])
+		conf.env.append_unique('CXXFLAGS_cxxstlib', ['-fPIC'])
+		conf.env.append_unique('LINKFLAGS_cxxshlib', ['-fPIC', '-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
 	return
 
 def post_compiler_c_configure(conf):
 	conf.msg('Target OS', conf.env.DEST_OS)
 	conf.msg('Target CPU', conf.env.DEST_CPU)
 	conf.msg('Target binfmt', conf.env.DEST_BINFMT)
-
+	if conf.options.PSVITA:
+		# see above
+		conf.env.append_unique('CFLAGS_cshlib', ['-fPIC'])
+		conf.env.append_unique('CFLAGS_cstlib', ['-fPIC'])
+		conf.env.append_unique('LINKFLAGS_cshlib', ['-fPIC', '-nostdlib', '-Wl,--unresolved-symbols=ignore-all'])
 	return
 
 from waflib.Tools import compiler_cxx, compiler_c

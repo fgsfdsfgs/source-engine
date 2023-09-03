@@ -2410,7 +2410,7 @@ void GLMContext::Present( CGLMTex *tex )
 	m_nTotalVSUniformCalls = 0, m_nTotalVSUniformBoneCalls = 0, m_nTotalVSUniformsSet = 0, m_nTotalVSUniformsBoneSet = 0, m_nTotalPSUniformCalls = 0, m_nTotalPSUniformsSet = 0;
 #endif
 
-#ifndef OSX
+#if !defined(OSX) && !defined(PLATFORM_PSVITA)
 	GLMGPUTimestampManagerTick();
 #endif
 }
@@ -2492,7 +2492,7 @@ GLMContext::GLMContext( IDirect3DDevice9 *pDevice, GLMDisplayParams *params )
 
 	ClearCurAttribs();
 
-#ifndef OSX
+#if !defined(OSX) && !defined(PLATFORM_PSVITA)
 	m_nCurPinnedMemoryBuffer = 0;
 	if ( gGL->m_bHave_GL_AMD_pinned_memory )
 	{
@@ -2503,7 +2503,7 @@ GLMContext::GLMContext( IDirect3DDevice9 *pDevice, GLMDisplayParams *params )
 
 		gGL->glBindBufferARB( GL_EXTERNAL_VIRTUAL_MEMORY_BUFFER_AMD, m_PinnedMemoryBuffers[m_nCurPinnedMemoryBuffer].GetHandle() );
 	}
-#endif // OSX
+#endif // !OSX && !PLATFORM_PSVITA
 
 	m_nCurPersistentBuffer = 0;
 	if ( gGL->m_bHave_GL_ARB_buffer_storage )
@@ -2609,7 +2609,7 @@ GLMContext::GLMContext( IDirect3DDevice9 *pDevice, GLMDisplayParams *params )
 
 	m_texLayoutTable = new CGLMTexLayoutTable;
 
-#ifndef OSX
+#if !defined(OSX) && !defined(PLATFORM_PSVITA)
 	if ( m_bUseSamplerObjects )
 	{
 		memset( m_samplerObjectHash, 0, sizeof( m_samplerObjectHash ) );
@@ -2620,7 +2620,7 @@ GLMContext::GLMContext( IDirect3DDevice9 *pDevice, GLMDisplayParams *params )
 			gGL->glGenSamplers( 1, &m_samplerObjectHash[i].m_samplerObject );
 		}
 	}
-#endif // !OSX
+#endif // !OSX && !PLATFORM_PSVITA
 
 	memset( m_samplers, 0, sizeof( m_samplers ) );
 	for( int i=0; i< GLM_SAMPLER_COUNT; i++)
@@ -2850,7 +2850,7 @@ void GLMContext::Reset()
 
 GLMContext::~GLMContext	()
 {
-#ifndef OSX
+#if !defined(OSX) && !defined(PLATFORM_PSVITA)
 	GLMGPUTimestampManagerDeinit();
 		
 	for ( uint t = 0; t < cNumPinnedMemoryBuffers; t++ )
@@ -2882,7 +2882,7 @@ GLMContext::~GLMContext	()
 			m_samplerObjectHash[i].m_samplerObject = 0;
 		}
 	}
-#endif // !OSX
+#endif // !OSX && !PLATFORM_PSVITA
 
 	if (m_debugFontTex)
 	{

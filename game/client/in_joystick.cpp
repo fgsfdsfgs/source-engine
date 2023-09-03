@@ -129,7 +129,7 @@ extern ConVar thirdperson_screenspace;
 //-----------------------------------------------------------------
 bool CInput::EnableJoystickMode()
 {
-	return IsConsole() || in_joystick.GetBool();
+	return IsConsole() || IsPSVita() || in_joystick.GetBool();
 }
 
 

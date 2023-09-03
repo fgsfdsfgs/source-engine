@@ -2721,6 +2721,8 @@ bool CGameServer::SpawnServer( const char *szMapName, const char *szMapFile, con
       "BSD"
 #    endif
     );
+#elif defined(PLATFORM_PSVITA)
+		event->SetString("os", "PSVITA");
 #else
 #error
 #endif

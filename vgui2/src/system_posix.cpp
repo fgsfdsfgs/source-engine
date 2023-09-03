@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/param.h>
 
@@ -275,6 +274,7 @@ long CSystem::GetTimeMillis()
 //-----------------------------------------------------------------------------
 void CSystem::ShellExecute(const char *command, const char *file)
 {
+#ifndef PLATFORM_PSVITA
 	if ( V_strcmp( command, "open" ) != 0 )
 	{
 		// Nope
@@ -314,6 +314,7 @@ void CSystem::ShellExecute(const char *command, const char *file)
 		execlp( szCommand, szCommand, file, (char *)0 );
 		Assert( !"execlp failed" );
 	}
+#endif // PLATFORM_PSVITA
 }
 
 void CSystem::ShellExecuteEx( const char *command, const char *file, const char *pParams )
@@ -587,6 +588,9 @@ int CSystem::GetAvailableDrives(char *buf, int bufLen)
 //-----------------------------------------------------------------------------
 double CSystem::GetFreeDiskSpace(const char *path)
 {
+#if PLATFORM_PSVITA
+	return 128.0 * 1024.0 * 1024.0; // don't know, don't care
+#else
 #if __DARWIN_ONLY_64_BIT_INO_T || PLATFORM_BSD
     // MoeMod: newer macOS only support 64bit, so no statfs64 is provided
     struct statfs buf;
@@ -598,6 +602,7 @@ double CSystem::GetFreeDiskSpace(const char *path)
 	if ( ret < 0 )
 		return 0.0;
 	return (double) ( buf.f_bsize * buf.f_bfree );
+#endif
 }
 
 //-----------------------------------------------------------------------------

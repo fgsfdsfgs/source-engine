@@ -103,6 +103,9 @@ typedef char TCHAR;
 
 #if defined(POSIX) && !defined(MAX_PATH)
 #include <limits.h>
+#ifndef PATH_MAX
+#define PATH_MAX 1024
+#endif
 #define MAX_PATH PATH_MAX
 typedef bool BOOL;
 #endif

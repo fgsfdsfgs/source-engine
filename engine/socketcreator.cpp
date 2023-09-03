@@ -18,10 +18,14 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <errno.h>
-#include <sys/ioctl.h>
 #define closesocket close
 #define WSAGetLastError() errno
+#ifdef PLATFORM_PSVITA
+#include "net_psvita.h"
+#else
+#include <sys/ioctl.h>
 #define ioctlsocket ioctl
+#endif
 #ifdef OSX
 #define MSG_NOSIGNAL 0
 #endif

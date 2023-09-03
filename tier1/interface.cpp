@@ -27,6 +27,8 @@
 #include "tier0/threadtools.h"
 #ifdef _WIN32
 #include <direct.h> // getcwd
+#elif defined(PLATFORM_PSVITA)
+// bruh
 #elif POSIX
 #include <dlfcn.h>
 #include <unistd.h>
@@ -247,7 +249,7 @@ HMODULE Sys_LoadLibrary( const char *pLibraryName, Sys_Flags flags )
 #elif POSIX
 	int dlopen_mode = RTLD_NOW;
 
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(PLATFORM_PSVITA)
 	if ( flags & SYS_NOLOAD )
 		dlopen_mode |= RTLD_NOLOAD;
 #endif

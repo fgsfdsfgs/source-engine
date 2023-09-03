@@ -230,12 +230,20 @@ def define_platform(conf):
 			'NO_HOOK_MALLOC',
 			'_DLL_EXT=.dylib'
 		])
-
 	elif conf.env.DEST_OS in ['freebsd', 'openbsd', 'netbsd', 'dragonflybsd']: # Tested only in freebsd
 		conf.env.append_unique('DEFINES', [
 			'POSIX=1', '_POSIX=1', 'PLATFORM_POSIX=1',
 			'GNUC', # but uses clang
 			'PLATFORM_BSD=1',
+			'_DLL_EXT=.so'
+		])
+	elif conf.env.DEST_OS == 'psvita':
+		conf.env.append_unique('DEFINES', [
+			'POSIX=1', '_POSIX=1', 'PLATFORM_POSIX=1',
+			'GNUC', '_GNU_SOURCE',
+			'PLATFORM_PSVITA=1',
+			'NO_HOOK_MALLOC',
+			'HAVE_FC=0', # no fontconfig
 			'_DLL_EXT=.so'
 		])
 
@@ -297,9 +305,12 @@ def options(opt):
 
 def check_deps(conf):
 	if conf.env.DEST_OS != 'win32':
-		conf.check_cc(lib='dl', mandatory=False)
+		if conf.env.DEST_OS == 'psvita':
+			conf.check_cc(lib='vrtld', mandatory=False)
+		else:
+			conf.check_cc(lib='dl', mandatory=False)
+			conf.check_cc(lib='rt', mandatory=False)
 		conf.check_cc(lib='bz2', mandatory=False)
-		conf.check_cc(lib='rt', mandatory=False)
 
 		if not conf.env.LIB_M: # HACK: already added in xcompile!
 			conf.check_cc(lib='m')
@@ -357,7 +368,8 @@ def check_deps(conf):
 				conf.check_cfg(package='libedit', uselib_store='EDIT', args=['--cflags', '--libs'])
 			else:
 				conf.check_pkg('freetype2', 'FT2', FT2_CHECK)
-				conf.check_pkg('fontconfig', 'FC', FC_CHECK)
+				if conf.env.DEST_OS != 'psvita':
+					conf.check_pkg('fontconfig', 'FC', FC_CHECK)
 				if conf.env.DEST_OS == "darwin":
 					conf.env.FRAMEWORK_OPENAL = "OpenAL"
 				else:
@@ -416,6 +428,12 @@ def configure(conf):
 		conf.load('masm')
 	elif conf.env.DEST_OS == 'darwin':
 		conf.load('mm_hook')
+	elif conf.env.DEST_OS == 'psvita':
+		conf.load('psvita')
+		conf.options.TOGL = False
+		conf.options.TOGLES = True # force ToGLES
+		conf.options.ALLOW64 = False # vita is armv7a
+		conf.options.SDL = True # can't do otherwise
 
 	define_platform(conf)
 	conf.define('GIT_COMMIT_HASH', conf.env.GIT_VERSION)
@@ -442,7 +460,7 @@ def configure(conf):
 		compiler_optional_flags = [
 			'-Wall',
 			'-fdiagnostics-color=always',
-			'-Wcast-align',
+			# '-Wcast-align',
 			'-Wuninitialized',
 			'-Winit-self',
 			'-Wstrict-aliasing',
@@ -468,8 +486,12 @@ def configure(conf):
 		flags += ['-fsanitize=%s'%conf.options.SANITIZE, '-fno-sanitize=vptr']
 
 	if conf.env.DEST_OS != 'win32':
-		flags += ['-pipe', '-fPIC', '-L'+os.path.abspath('.')+'/lib/'+conf.env.DEST_OS+'/'+conf.env.DEST_CPU+'/']
-	if conf.env.COMPILER_CC != 'msvc':
+		flags += ['-pipe', '-L'+os.path.abspath('.')+'/lib/'+conf.env.DEST_OS+'/'+conf.env.DEST_CPU+'/']
+		if conf.env.DEST_OS != 'psvita':
+			# only shared libs have to be built with -fPIC, but not the main executable
+			# this is specified in xcompile.py
+			flags += ['-fPIC']
+	if conf.env.COMPILER_CC != 'msvc' and conf.env.DEST_OS != 'psvita':
 		flags += ['-pthread']
 
 	if conf.env.DEST_OS == 'android':
@@ -484,6 +506,9 @@ def configure(conf):
 		]
 
 		flags += ['-funwind-tables', '-g']
+	elif conf.env.DEST_OS == 'psvita':
+		# flags += ['-lvrtld', '-lm']
+		pass
 	elif conf.env.COMPILER_CC != 'msvc' and conf.env.DEST_OS != 'darwin' and conf.env.DEST_CPU in ['x86', 'x86_64']:
 		flags += ['-march=core2']
 
@@ -540,7 +565,9 @@ def configure(conf):
 
 	# And here C++ flags starts to be treated separately
 	cxxflags = list(cflags)
-	if conf.env.DEST_OS != 'win32':
+	if conf.env.DEST_OS == 'psvita':
+		cxxflags += ['-std=gnu++11','-fpermissive']
+	elif conf.env.DEST_OS != 'win32':
 		cxxflags += ['-std=c++11','-fpermissive']
 
 	if conf.env.COMPILER_CC == 'gcc':

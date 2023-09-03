@@ -2612,7 +2612,7 @@ void CMaterial::SetEnumerationID( int id )
 //-----------------------------------------------------------------------------
 char const* CMaterial::GetPreviewImageName( void )
 {
-	if ( IsConsole() )
+	if ( IsConsole() || IsPSVita() )
 	{
 		// not supporting
 		return NULL;

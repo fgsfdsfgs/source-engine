@@ -2350,7 +2350,7 @@ void CBasePanel::RunMenuCommand(const char *command)
 				fprintf( fp, "%s\n", szSteamURL );
 			}
 			fclose( fp );
-#elif defined( _X360 )
+#elif defined( _X360 ) || defined( PLATFORM_PSVITA )
 #else
 #error
 #endif

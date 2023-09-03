@@ -8,7 +8,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #elif defined( POSIX )
+#ifndef PLATFORM_PSVITA
 #include <sys/mman.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -57,7 +59,7 @@ MumbleSharedMemory_t *g_pMumbleMemory = NULL;
 HANDLE g_hMapObject = NULL;
 #endif
 
-ConVar sv_mumble_positionalaudio( "sv_mumble_positionalaudio", "1", FCVAR_REPLICATED, "Allows players using Mumble to have support for positional audio." );
+ConVar sv_mumble_positionalaudio( "sv_mumble_positionalaudio", "0", FCVAR_REPLICATED, "Allows players using Mumble to have support for positional audio." );
 
 //-----------------------------------------------------------------------------
 // Singleton
@@ -98,7 +100,7 @@ void CMumbleSystem::LevelInitPostEntity()
 		g_hMapObject = NULL;
 		return;
 	}
-#elif defined( ANDROID )
+#elif defined( ANDROID ) || defined( PLATFORM_PSVITA )
 	return; // TODO(JusicP): implement
 #elif defined( POSIX )
 	char memname[256];
@@ -130,7 +132,7 @@ void CMumbleSystem::LevelShutdownPreEntity()
 		g_pMumbleMemory = NULL;
 		g_hMapObject = NULL;
 	}
-#elif defined( POSIX )
+#elif defined( POSIX ) && !defined( PLATFORM_PSVITA )
 	if ( g_pMumbleMemory )
 	{
 		munmap( g_pMumbleMemory, sizeof(struct MumbleSharedMemory_t) );

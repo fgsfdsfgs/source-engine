@@ -79,6 +79,13 @@ extern void convert_texture( GLenum &internalformat, GLsizei width, GLsizei heig
 
 char g_nullFragmentProgramText [] =
 {
+#ifdef PLATFORM_PSVITA
+	"varying out float4 gl_FragColor : COLOR0;\n"
+	"void main()\n"
+	"{\n"
+	"gl_FragColor = float4( 0.0, 0.0, 0.0, 1.0 );\n"
+	"}\n"
+#else
 	"#version 300 es\n"
 	"precision mediump float;\n"
 	"out vec4 _gl_FragColor;\n"
@@ -86,11 +93,24 @@ char g_nullFragmentProgramText [] =
 	"{\n"
 	"_gl_FragColor = vec4( 0.0, 0.0, 0.0, 1.0 );\n"
 	"}\n"
+#endif
 };
 
 // make dummy programs for doing texture preload via dummy draw
 char g_preloadTexVertexProgramText[] = // Гроб гроб кладбище пидор
 {
+#ifdef PLATFORM_PSVITA
+	"varying out float4 gl_Position : POSITION;\n"
+	"varying out float4 otex : TEXCOORD0;\n"
+	"void main()\n"
+	"{\n"
+	"float4 pos = float4( 0.1, 0.1, 0.1, 0.1 );\n"
+	"float4 tex = float4( 0.0, 0.0, 0.0, 0.0 );\n"
+	"\n"
+	"gl_Position = pos;\n"
+	"otex = tex;  \n"
+	"}  \n"
+#else
 	"#version 300 es\n"
 	"precision mediump float;\n"
 	"out vec4 otex;\n"
@@ -102,10 +122,27 @@ char g_preloadTexVertexProgramText[] = // Гроб гроб кладбище п�
 	"gl_Position = pos;\n"
 	"otex = tex;  \n"
 	"}  \n"
+#endif
 };
 
 char g_preload2DTexFragmentProgramText[] =
 {
+#ifdef PLATFORM_PSVITA
+	"varying out float4 gl_FragColor : COLOR0;\n"
+	"varying in float4 otex : TEXCOORD0;\n"
+	"//SAMPLERMASK-8000		// may not be needed  \n"
+	"//HIGHWATER-30			// may not be needed  \n"
+	"  \n"
+	"uniform float4 pc[31];  \n"
+	"uniform sampler2D sampler15;  \n"
+	"  \n"
+	"void main()  \n"
+	"{  \n"
+	"float4 r0;  \n"
+	"r0 = tex2D( sampler15, otex.xy );  \n"
+	"gl_FragColor = r0;	//discard;  \n"
+	"}  \n"
+#else
 	"#version 300 es\n"
 	"precision mediump float;\n"
 	"out vec4 _gl_FragColor;\n"		
@@ -122,10 +159,27 @@ char g_preload2DTexFragmentProgramText[] =
 	"r0 = texture( sampler15, otex.xy );  \n"
 	"_gl_FragColor = r0;	//discard;  \n"
 	"}  \n"
+#endif
 };
 
 char g_preload3DTexFragmentProgramText[] =
 {
+#ifdef PLATFORM_PSVITA
+	"varying out float4 gl_FragColor : COLOR0;\n"	
+	"varying in float4 otex : TEXCOORD0;\n"
+	"//SAMPLERMASK-8000		// may not be needed  \n"
+	"//HIGHWATER-30			// may not be needed  \n"
+	"  \n"
+	"uniform float4 pc[31];  \n"
+	"uniform sampler2D sampler15;  \n" // no sampler3D on psvita
+	"  \n"
+	"void main()  \n"
+	"{  \n"
+	"float4 r0;  \n"
+	"r0 = tex2D( sampler15, otex.xy );  \n"
+	"gl_FragColor = float4(0,0,0,0);	//discard;  \n"
+	"}  \n"
+#else
 	"#version 300 es\n"
 	"precision mediump float;\n"
 	"out vec4 _gl_FragColor;\n"	
@@ -143,10 +197,27 @@ char g_preload3DTexFragmentProgramText[] =
 	"r0 = texture( sampler15, otex.xyz );  \n"
 	"_gl_FragColor = vec4(0,0,0,0);	//discard;  \n"
 	"}  \n"
+#endif
 };
 
 char g_preloadCubeTexFragmentProgramText[] =
 {
+#ifdef PLATFORM_PSVITA
+	"varying in float4 otex : TEXCOORD0;\n"
+	"varying out float4 gl_FragColor : COLOR0;\n"
+	"//SAMPLERMASK-8000             // may not be needed  \n"
+	"//HIGHWATER-30                 // may not be needed  \n"
+	"  \n"
+	"uniform float4 pc[31];  \n"
+	"uniform samplerCUBE sampler15;  \n"
+	"  \n"
+	"void main()  \n"
+	"{  \n"
+	"float4 r0;  \n"
+	"r0 = texCUBE( sampler15, otex.xyz );  \n"
+	"gl_FragColor = r0;	//discard;  \n"
+	"}  \n"
+#else
 	"#version 300 es\n"
 	"precision mediump float;\n"
 	"in vec4 otex;\n"
@@ -163,6 +234,7 @@ char g_preloadCubeTexFragmentProgramText[] =
 	"r0 = texture( sampler15, otex.xyz );  \n"
 	"_gl_FragColor = r0;	//discard;  \n"
 	"}  \n"
+#endif
 };
 
 const char* glSourceToString(GLenum source)

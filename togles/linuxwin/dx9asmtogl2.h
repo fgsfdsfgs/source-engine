@@ -34,8 +34,13 @@
 
 #define MAX_SHADER_CONSTANTS	512
 
+#ifdef PLATFORM_PSVITA
+#define MAX_DECLARED_OUTPUTS	10
+#define MAX_DECLARED_INPUTS	15
+#else
 #define MAX_DECLARED_OUTPUTS	32
 #define MAX_DECLARED_INPUTS	32
+#endif
 
 #define HEXCODE_HEADER		"// Hex: "
 
@@ -87,6 +92,11 @@ private:
 	bool	m_bColor;
 	bool	m_bSecondaryColor;
 	bool	m_bFrontColor;
+#ifdef PLATFORM_PSVITA
+	bool	m_bFragDepth;
+	bool	m_bVertexPos;
+	bool	m_bFragCoord;
+#endif
 
 
 	// Counter for dealing with nested loops

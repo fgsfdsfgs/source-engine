@@ -422,6 +422,10 @@ public:
 				{
 					bOk = false;
 				}
+#elif defined ( PLATFORM_PSVITA )
+			// TODO
+			Q_strncpy( username, "User", sizeof( username ) - 1 );
+			username[sizeof(username)-1] = '\0';
 #else
 				struct passwd *pass = getpwuid( getuid() );
 				if ( pass )

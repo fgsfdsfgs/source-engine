@@ -2630,7 +2630,7 @@ bool	GLMDetectOGLP( void )
 	#include <unistd.h>  
 #ifdef LINUX
 #include <linux/sysctl.h>
-#else
+#elif !defined(PLATFORM_PSVITA)
 #include <sys/sysctl.h>
 #endif
 #endif
@@ -3530,11 +3530,13 @@ void CGLMFileMirror::WriteFile( void )
 
 void	CGLMFileMirror::OpenInEditor( bool foreground )
 {
+#ifndef PLATFORM_PSVITA
 	char temp[64000];
 	
 	// pass -b if no desire to bring editor to foreground
 	sprintf(temp,"/usr/bin/bbedit %s %s", foreground ? "" : "-b", m_path );
 	system( temp );
+#endif
 }
 
 
